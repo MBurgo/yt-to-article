@@ -1,13 +1,31 @@
 import streamlit as st
-from youtube_transcript_api import YouTubeTranscriptApi
-from openai import OpenAI
+import sys
+import subprocess
+import importlib
 import re
+from openai import OpenAI
 
-# --- CONFIGURATION ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="TMF Content Multiplier", layout="wide")
 
+# --- SELF-HEALING DEPENDENCY CHECK ---
+# This block runs before the app loads to ensure the library is not broken.
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    # Test if the modern method exists
+    getattr(YouTubeTranscriptApi, 'list_transcripts')
+except (ImportError, AttributeError):
+    st.warning("🛠️ Detected outdated 'youtube-transcript-api'. Auto-repairing... please wait 10 seconds.")
+    try:
+        # Force upgrade the package
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "youtube-transcript-api"])
+        st.success("✅ Repair complete! Please refresh your browser page now.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Auto-repair failed: {e}. Please run `pip install --upgrade youtube-transcript-api` in your terminal.")
+        st.stop()
+
 # --- AUTHENTICATION ---
-# This looks for the key in .streamlit/secrets.toml
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
 except FileNotFoundError:
@@ -28,18 +46,19 @@ def get_video_id(url):
     return None
 
 def get_transcript(video_id):
-    """Fetches the transcript using the new API method (fixes AttributeError)."""
+    """Fetches the transcript using the new API method."""
     try:
         # 1. Fetch the list of available transcripts
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        # 2. Try to find a manual English transcript, fallback to auto-generated
-        #    This looks for 'en' (English) or 'en-AU', 'en-GB', etc.
+        # 2. Try to find a manual English transcript (AU/UK/US), fallback to auto-generated
         try:
             transcript = transcript_list.find_manually_created_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
         except:
-            # If no manual one exists, get the auto-generated one
-            transcript = transcript_list.find_generated_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
+            try:
+                transcript = transcript_list.find_generated_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
+            except:
+                return "Error: No English transcript found for this video."
         
         # 3. Fetch the actual text data
         transcript_data = transcript.fetch()
@@ -49,7 +68,6 @@ def get_transcript(video_id):
         return full_text
         
     except Exception as e:
-        # Fallback: detailed error message helps debugging
         return f"Error: {str(e)}"
 
 def generate_article(transcript_text, api_key):
