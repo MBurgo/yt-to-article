@@ -28,19 +28,35 @@ def get_video_id(url):
     return None
 
 def get_transcript(video_id):
-    """Fetches the transcript from YouTube."""
+    """Fetches the transcript using the new API method (fixes AttributeError)."""
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        full_text = " ".join([t['text'] for t in transcript_list])
+        # 1. Fetch the list of available transcripts
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+        # 2. Try to find a manual English transcript, fallback to auto-generated
+        #    This looks for 'en' (English) or 'en-AU', 'en-GB', etc.
+        try:
+            transcript = transcript_list.find_manually_created_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
+        except:
+            # If no manual one exists, get the auto-generated one
+            transcript = transcript_list.find_generated_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
+        
+        # 3. Fetch the actual text data
+        transcript_data = transcript.fetch()
+        
+        # 4. Combine into a single string
+        full_text = " ".join([t['text'] for t in transcript_data])
         return full_text
+        
     except Exception as e:
+        # Fallback: detailed error message helps debugging
         return f"Error: {str(e)}"
 
 def generate_article(transcript_text, api_key):
     """Sends transcript to LLM to rewrite as a TMF article."""
     client = OpenAI(api_key=api_key)
     
-    # --- UPDATED SYSTEM PROMPT (EDUCATIONAL FOCUS) ---
+    # --- SYSTEM PROMPT (EDUCATIONAL FOCUS) ---
     system_prompt = """
     You are a senior financial editor for The Motley Fool Australia. 
     Your goal is to transform a video transcript into a high-quality, educational news article.
