@@ -27,28 +27,35 @@ def get_video_id(url):
     return None
 
 def get_transcript(video_id):
-    """Fetches the transcript using the new API method."""
+    """Fetches the transcript using the v1.0+ Instance Method."""
     try:
-        # 1. Fetch the list of available transcripts
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # --- THE FIX FOR v1.0+ ---
+        # We must instantiate the class first: '()'
+        loader = YouTubeTranscriptApi() 
         
-        # 2. Try to find a manual English transcript (AU/UK/US), fallback to auto-generated
+        # Now we call .list() on the instance (not .list_transcripts on the class)
+        transcript_list = loader.list(video_id)
+        
+        # Try to find a manual English transcript (AU/UK/US), fallback to auto-generated
         try:
             transcript = transcript_list.find_manually_created_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
         except:
             try:
                 transcript = transcript_list.find_generated_transcript(['en', 'en-AU', 'en-GB', 'en-US'])
             except:
-                return "Error: No English transcript found for this video. (It might be too new or have captions disabled)."
+                return "Error: No English transcript found. (Video might be too new or have captions disabled)."
         
-        # 3. Fetch the actual text data
+        # Fetch the actual text data
         transcript_data = transcript.fetch()
         
-        # 4. Combine into a single string
+        # Combine into a single string
         full_text = " ".join([t['text'] for t in transcript_data])
         return full_text
         
     except Exception as e:
+        # Fallback for older versions (Just in case)
+        if "object has no attribute 'list'" in str(e):
+             return "Critical Version Mismatch: Please ensure youtube-transcript-api is updated."
         return f"Error: {str(e)}"
 
 def generate_article(transcript_text, api_key):
