@@ -54,7 +54,7 @@ def generate_article(raw_text, api_key):
 
 # --- UI LAYOUT ---
 
-st.title("🃏 TMF Content Multiplier (Text Edition)")
+st.title("🃏 Foolish Videos --> Foolish Article Tool")
 st.markdown("""
 **How to use:**
 1. Go to the YouTube video.
