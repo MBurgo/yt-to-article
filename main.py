@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="TMF Content Multiplier", layout="wide")
+st.set_page_config(page_title="Foolish Video to Foolish Article Tool", layout="wide")
 
 # --- AUTHENTICATION ---
 try:
